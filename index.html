@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DAVV Payroll – Exact PDF Format</title>
+    <title>DAVV Payroll – Exact PDF Format (with P.TAX)</title>
     <style>
         * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; }
         body { background: #e6e9ef; display: flex; justify-content: center; padding: 20px; margin: 0; }
@@ -95,6 +95,8 @@
             <div class="colon-right"><span>:</span> <label>I-TAX</label> <input type="text" id="itax" value="0"></div>
             <div class="colon-right"><span>:</span> <label>C-PEN-F</label> <input type="text" id="cpenf" value="0"></div>
             <div class="colon-right"><span>:</span> <label>MEDCLM</label> <input type="text" id="medclm" value="0"></div>
+            <!-- New P.TAX field added here -->
+            <div class="colon-right"><span>:</span> <label>P.TAX</label> <input type="text" id="ptax" value="0"></div>
             <div class="colon-right"><span>:</span> <label>BIJLI.CH</label> <input type="text" id="bijlich" value="0"></div>
         </div>
     </div>
@@ -130,7 +132,7 @@
         <button id="saveBtn">💾 SAVE</button>
         <button id="pdfAllBtn">📄 GENERATE PDF</button>
     </div>
-    <p class="small-note">* PF Contr. = ceil(0.10 × (BASIC+DA)). PDF matches the exact DAVV payslip format.</p>
+    <p class="small-note">* PF Contr. = ceil(0.10 × (BASIC+DA)). PDF matches the exact DAVV payslip format (P.TAX printed only if >0).</p>
 </div>
 
 <!-- jsPDF for exact canvas-based PDF rendering -->
@@ -159,6 +161,8 @@
     const itaxInp     = $('itax');
     const cpenfInp    = $('cpenf');
     const medclmInp   = $('medclm');
+    // New ptax input
+    const ptaxInp     = $('ptax');
     const bijlichInp  = $('bijlich');
     const bankCpenfInp= $('bankCpenf');
     const pfcontrInp  = $('pfcontr');
@@ -178,18 +182,20 @@
     function computeTotals() {
         const b = n(basicInp.value), d = n(daInp.value), m = n(maInp.value), h = n(hraInp.value);
         const earn = b + d + m + h;
-        const ded = n(hrwInp.value) + n(itaxInp.value) + n(cpenfInp.value) + n(medclmInp.value) + n(bijlichInp.value);
+        // Include ptax in deductions
+        const ded = n(hrwInp.value) + n(itaxInp.value) + n(cpenfInp.value) + n(medclmInp.value) + n(ptaxInp.value) + n(bijlichInp.value);
         pfcontrInp.value = Math.ceil(0.10 * (b + d));
         totalEarnSp.innerText = earn.toFixed(2);
         totalDedSp.innerText  = ded.toFixed(2);
         netsalaryInp.value    = (earn - ded).toFixed(2);
     }
 
-    [basicInp,daInp,maInp,hraInp,hrwInp,itaxInp,cpenfInp,medclmInp,bijlichInp].forEach(e => e.addEventListener('input', computeTotals));
+    // Add ptax to input listeners
+    [basicInp,daInp,maInp,hraInp,hrwInp,itaxInp,cpenfInp,medclmInp,ptaxInp,bijlichInp].forEach(e => e.addEventListener('input', computeTotals));
     computeTotals();
 
     // ── Storage ──────────────────────────────────────────────────────
-    const KEY = 'davv_payroll_v2';
+    const KEY = 'davv_payroll_v2_ptax'; // new key to avoid mixing with old data
     function getRecs() { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch(e){ return []; } }
     function setRecs(r){ localStorage.setItem(KEY, JSON.stringify(r)); }
 
@@ -198,7 +204,7 @@
                  desg:desgInp.value, empno:empnoInp.value, pfno:pfnoInp.value, ucsno:ucsnoInp.value,
                  grade:gradeSel.value, wdays:wdaysInp.value, pfnosf:pfnosfInp.value, esisno:esisnoInp.value,
                  basic:basicInp.value, da:daInp.value, ma:maInp.value, hra:hraInp.value, hrw:hrwInp.value,
-                 itax:itaxInp.value, cpenf:cpenfInp.value, medclm:medclmInp.value, bijlich:bijlichInp.value,
+                 itax:itaxInp.value, cpenf:cpenfInp.value, medclm:medclmInp.value, ptax:ptaxInp.value, bijlich:bijlichInp.value,
                  bankCpenf:bankCpenfInp.value, esiscontr:esiscontrInp.value };
     }
 
@@ -209,7 +215,7 @@
         wdaysInp.value=s.wdays||''; pfnosfInp.value=s.pfnosf||''; esisnoInp.value=s.esisno||'';
         basicInp.value=s.basic||'0'; daInp.value=s.da||'0'; maInp.value=s.ma||'0'; hraInp.value=s.hra||'0';
         hrwInp.value=s.hrw||'0'; itaxInp.value=s.itax||'0'; cpenfInp.value=s.cpenf||'0';
-        medclmInp.value=s.medclm||'0'; bijlichInp.value=s.bijlich||'0';
+        medclmInp.value=s.medclm||'0'; ptaxInp.value=s.ptax||'0'; bijlichInp.value=s.bijlich||'0';
         bankCpenfInp.value=s.bankCpenf||'0'; esiscontrInp.value=s.esiscontr||'0';
         computeTotals();
     }
@@ -238,10 +244,9 @@
 
     refreshSel();
 
-    // ── PDF Generation – exact DAVV payslip format using jsPDF canvas ──
+    // ── PDF Generation – exact DAVV payslip format with P.TAX handling ──
     function fmt(v, dec=1) {
         const num = parseFloat(v)||0;
-        // match original format: e.g. 152300.0  (1 decimal)
         return num.toFixed(dec);
     }
 
@@ -255,16 +260,15 @@
 
         const basic  = n(r.basic), da = n(r.da), ma = n(r.ma), hra = n(r.hra||0);
         const hrw    = n(r.hrw),   itax = n(r.itax), cpenf = n(r.cpenf);
-        const medclm = n(r.medclm), bijlich = n(r.bijlich);
+        const medclm = n(r.medclm), ptax = n(r.ptax || 0), bijlich = n(r.bijlich);
         const esis   = n(r.esiscontr);
         const totalEarn = basic + da + ma + hra;
         const pfContr   = Math.ceil(0.10 * (basic + da));
-        const totalDed  = hrw + itax + cpenf + medclm + bijlich;
+        const totalDed  = hrw + itax + cpenf + medclm + ptax + bijlich;
         const netSal    = totalEarn - totalDed;
-        const fv = v => fmtNum(v);
+        const fv = v => (v).toFixed(1);
 
-        // Fixed-width text layout (dot-matrix === style)
-        // A5 portrait at 6pt Courier: char ~1.765mm, usable ~138mm -> 78 chars
+        // Fixed-width text layout (dot-matrix style)
         const W   = 110;
         const SEP = '='.repeat(W);
 
@@ -310,7 +314,6 @@
             place(a, 0,  'EMP NO');
             place(a, C,  ':');
             place(a, VC, (r.empno||'') + ' PF NO.:' + (r.pfno||''));
-            // centre "UCS:<value>" between VC and RC
             const ucsStr = 'UCS:' + (r.ucsno||'');
             const ucsCol = Math.floor((VC + RC - ucsStr.length) / 2);
             place(a, ucsCol, ucsStr);
@@ -327,17 +330,20 @@
         lines.push(line(a => { place(a, 5, 'EARNINGS'); place(a, 79, 'DEDUCTIONS'); }));
         lines.push(SEP);
 
-        // Build earn and ded lists independently, then zip — no gaps when items are skipped
+        // Build earn and ded lists, conditionally include HRA (if >0) and P.TAX (if >0)
         const earnRows = [['BASIC', basic], ['DA', da], ['MA', ma]];
         if (hra > 0) earnRows.push(['HRA', hra]);
 
         const dedRows = [];
         if (hrw    > 0) dedRows.push(['HR & W',   hrw]);
-        dedRows.push(['I-TAX', itax]);
+        if (itax   > 0) dedRows.push(['I-TAX',    itax]);
         if (cpenf  > 0) dedRows.push(['C-PEN-F',  cpenf]);
-        dedRows.push(['MEDCLM', medclm]);
+        if (medclm > 0) dedRows.push(['MEDCLM',   medclm]);
+        // P.TAX: include only if > 0 (per requirement)
+        if (ptax   > 0) dedRows.push(['P.TAX',    ptax]);
         if (bijlich > 0) dedRows.push(['BIJLI.CH', bijlich]);
 
+        // At least one row? If both lists empty, put a placeholder, but not needed
         const maxRows = Math.max(earnRows.length, dedRows.length);
         for (let i = 0; i < maxRows; i++) {
             const [eLabel, eVal] = earnRows[i] || ['', null];
@@ -363,8 +369,8 @@
             place(a, 0, '* BANK *');
             const ns = 'NET SAL:' + netSal.toFixed(2);
             place(a, W - ns.length, ns);
-            // build the middle block and centre it between col 9 and col (W - ns.length - 1)
-            const mid = 'c-pen-f  PF Contr.:' + pfContr + '  ESIS Contr.:' + (esis > 0 ? fv(esis) : '');
+            // middle block: c-pen-f  PF Contr.:xx  ESIS Contr.:yy
+            const mid = `c-pen-f  PF Contr.:${pfContr}  ESIS Contr.:${esis > 0 ? fv(esis) : '0.0'}`;
             const leftEdge  = 9;
             const rightEdge = W - ns.length - 1;
             const midStart  = leftEdge + Math.floor((rightEdge - leftEdge - mid.length) / 2);
@@ -375,7 +381,6 @@
         // Render to PDF - A5 Landscape
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a5' });
-        // 8.5pt Courier: ~2.5mm/char
         doc.setFont('Courier', 'normal');
         doc.setFontSize(8.5);
         const ML = 5, TOP = 25.4, LH = 3.7;
