@@ -95,7 +95,7 @@
             <div class="colon-right"><span>:</span> <label>I-TAX</label> <input type="text" id="itax" value="0"></div>
             <div class="colon-right"><span>:</span> <label>C-PEN-F</label> <input type="text" id="cpenf" value="0"></div>
             <div class="colon-right"><span>:</span> <label>MEDCLM</label> <input type="text" id="medclm" value="0"></div>
-            <div class="colon-right"><span>:</span> <label>P.TAX</label> <input type="text" id="ptax" value="0"></div>
+            <div class="colon-right"><span>:</span> <label>ProfTax</label> <input type="text" id="ptax" value="0"></div>
             <div class="colon-right"><span>:</span> <label>BIJLI.CH</label> <input type="text" id="bijlich" value="0"></div>
         </div>
     </div>
@@ -325,7 +325,7 @@
         if (itax   > 0) dedRows.push(['I-TAX',    itax]);
         if (cpenf  > 0) dedRows.push(['C-PEN-F',  cpenf]);
         if (medclm > 0) dedRows.push(['MEDCLM',   medclm]);
-        if (ptax   > 0) dedRows.push(['P.TAX',    ptax]);
+        if (ptax   > 0) dedRows.push(['ProfTax',    ptax]);
         if (bijlich > 0) dedRows.push(['BIJLI.CH', bijlich]);
 
         const maxRows = Math.max(earnRows.length, dedRows.length);
